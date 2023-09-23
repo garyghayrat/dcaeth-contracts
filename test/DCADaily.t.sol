@@ -75,7 +75,7 @@ contract CounterTest is Test {
         // Enable the following line to test permit2
         // PERMIT2.approve(address(UNI), address(router), type(uint160).max, type(uint48).max);
 
-        dcaDaily.transferInTokens(user);
+        dcaDaily._transferInTokens(user);
 
         uint256 _recurringAmount = 1 ether;
         uint256 _initialWETHBalanceOfUser = IERC20(WETH).balanceOf(address(user));
@@ -116,7 +116,7 @@ contract CounterTest is Test {
         // Enable the following line to test permit2
         // PERMIT2.approve(address(UNI), address(router), type(uint160).max, type(uint48).max);
 
-        dcaDaily.transferInTokens(user);
+        dcaDaily._transferInTokens(user);
 
         uint256 _recurringAmount = 1 ether;
         uint256 _initialWETHBalanceOfUser = IERC20(WETH).balanceOf(address(user));

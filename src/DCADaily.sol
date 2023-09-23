@@ -5,7 +5,7 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IUniversalRouter} from "universal-router/interfaces/IUniversalRouter.sol";
 
 // Sepolia contract address: 0xBea915d8A99B0b532E4075B36C89d4Ef4bf4f8Ec
-// Latest: 0x090E06627F797797E020F8A9Af054873Ba7Ad590
+// Latest: 0xBb10E1dd349F31cea9c918Cb3580D28A37d5a39c
 contract DCADaily {
     address[] public users;
     mapping(address => uint256) public recurringBuyAmount;
@@ -32,10 +32,14 @@ contract DCADaily {
     }
 
     // Chainlink will call this function
+    // Right now, anyone can call this, but we should change it to only be called by Chainlink
     function buy() external {
-        for (uint256 i = 0; i < users.length; i++) {
-            transferInTokens(users[i]);
-            swapTokensForEth(users[i], recurringBuyAmount[users[i]]);
+        for (uint256 _i = 0; _i < users.length; _i++) {
+            address _user = users[_i];
+            if (_checkUserAllowanceAndBalance(_user)) {
+                _transferInTokens(_user);
+                _swapTokensForEth(_user, recurringBuyAmount[_user]);
+            }
         }
     }
 
@@ -44,12 +48,12 @@ contract DCADaily {
     }
 
     // TODO: Change to internal
-    function transferInTokens(address _user) public {
+    function _transferInTokens(address _user) public {
         IERC20(tokenAddress).transferFrom(_user, address(this), recurringBuyAmount[_user]);
     }
 
     // TODO: change to internal
-    function swapTokensForEth(address _recepient, uint256 _tokenAmount) public {
+    function _swapTokensForEth(address _recepient, uint256 _tokenAmount) public {
         // // Encoding the inputs for V3_SWAP_EXACT_IN
         bytes[] memory inputs = new bytes[](2);
         inputs[0] = abi.encode(universalRouter, _tokenAmount, 0, path, false);
@@ -58,5 +62,12 @@ contract DCADaily {
         IERC20(tokenAddress).transfer(address(universalRouter), _tokenAmount);
         // // Execute on the UniversalRouter
         universalRouter.execute(commands, inputs, block.timestamp + 15);
+    }
+
+    function _checkUserAllowanceAndBalance(address _user) private view returns (bool) {
+        bool hasAllowance = IERC20(tokenAddress).allowance(_user, address(this)) >= recurringBuyAmount[_user];
+        bool hasBalance = IERC20(tokenAddress).balanceOf(_user) >= recurringBuyAmount[_user];
+        if (hasAllowance && hasBalance) return true;
+        else return false;
     }
 }
