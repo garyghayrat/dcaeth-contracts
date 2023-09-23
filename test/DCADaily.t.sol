@@ -20,6 +20,13 @@ contract CounterTest is Test {
     address public constant tokenAddress = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
     address constant WETH = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14; // Sepolia
 
+    // Fee tiers
+    // see: https://docs.uniswap.org/sdk/v3/reference/enums/FeeAmount
+    bytes3 constant HIGH_FEE_TIER = bytes3(uint24(10_000));
+    bytes3 constant MEDIUM_FEE_TIER = bytes3(uint24(3000));
+    bytes3 constant LOW_FEE_TIER = bytes3(uint24(500));
+    bytes3 constant LOWEST_FEE_TIER = bytes3(uint24(100));
+
     function setUp() public {
         mockToken = new ERC20Mock();
         dcaDaily = new DCADaily(address(UNI));
@@ -45,22 +52,19 @@ contract CounterTest is Test {
     // }
 
     function testSwap() public {
-        // vm.startPrank(user);
-        // UNI.approve(0x000000000022D473030F116dDEE9F6B43aC78BA3, type(uint256).max);
-        // uint256 _recurringAmount = 1 ether;
+        vm.startPrank(user);
+        uint256 _recurringAmount = 1 ether;
+        deal(address(UNI), user, 1000 ether);
+        uint256 _initialUNITokenBalanceOfUser = UNI.balanceOf(address(user));
+        uint256 _initialETHBalanceOfUser = (address(user)).balance;
 
-        // deal(address(UNI), user, 1000 ether);
-        // deal(address(UNI), universalRouter, 1000 ether);
-        // deal(address(UNI), address(dcaDaily), 1000 ether);
+        dcaDaily.signUp(_recurringAmount);
+        UNI.approve(address(dcaDaily), type(uint256).max);
+        dcaDaily.buy();
 
-        // uint256 _initialUNITokenBalanceOfUser = UNI.balanceOf(address(user));
-
-        // dcaDaily.signUp(_recurringAmount);
-        // UNI.approve(address(dcaDaily), type(uint256).max);
-        // dcaDaily.transferInTokens(user);
-        // assertEq(UNI.balanceOf(address(user)), _initialUNITokenBalanceOfUser - _recurringAmount);
-
-        // dcaDaily.swapTokensForEth(user, _recurringAmount);
+        assertEq(UNI.balanceOf(address(user)), _initialUNITokenBalanceOfUser - _recurringAmount);
+        assertTrue(address(user).balance > _initialETHBalanceOfUser);
+        vm.stopPrank();
     }
 
     function testUniversalRouter() public {
@@ -77,17 +81,13 @@ contract CounterTest is Test {
         uint256 _initialWETHBalanceOfUser = IERC20(WETH).balanceOf(address(user));
         uint256 _initialUNIBalanceOfUser = IERC20(UNI).balanceOf(address(user));
 
-        deal(address(UNI), user, 1000 ether);
-        // deal(address(UNI), universalRouter, 1000 ether);
-        deal(address(UNI), address(dcaDaily), 1000 ether);
-
         // Command for V3_SWAP_EXACT_IN
         bytes memory commands = abi.encodePacked(bytes1(uint8(0x00)));
         // Encoded path for V3_SWAP_EXACT_IN
-        bytes memory encodedPath =
-            abi.encode(bytes32(uint256(uint160(address(UNI)))), bytes3(uint24(10_000)), bytes32(uint256(uint160(WETH))));
+        // bytes memory encodedPath =
+        //     abi.encode(bytes32(uint256(uint160(address(UNI)))), bytes3(uint24(10_000)), bytes32(uint256(uint160(WETH))));
         // bytes memory path = bytes.concat(bytes20(address(UNI)), bytes20(address(WETH)));
-        bytes memory path = bytes.concat(bytes20(address(UNI)), bytes3(uint24(10_000)), bytes20(address(WETH)));
+        bytes memory path = bytes.concat(bytes20(address(UNI)), LOW_FEE_TIER, bytes20(address(WETH)));
         // https://docs.uniswap.org/contracts/universal-router/technical-reference#v3_swap_exact_in
         // Make the following line true to test permit2
         bool _inputTokenComesFromMsgSender = false;
@@ -104,7 +104,51 @@ contract CounterTest is Test {
         // Disable the following line to test permit2
         IERC20(UNI).transfer(address(router), _recurringAmount);
         router.execute(commands, inputs, uint256(block.timestamp + 10000000));
-        // assertEq(IERC20(UNI).balanceOf(address(user)), _initialUNIBalanceOfUser - _recurringAmount);
+        assertEq(IERC20(UNI).balanceOf(address(user)), _initialUNIBalanceOfUser - _recurringAmount);
         assertTrue(_initialWETHBalanceOfUser < IERC20(WETH).balanceOf(address(user)));
+    }
+
+    function testUniversalRouterWithUnwrapEth() public {
+        vm.startPrank(user);
+
+        UNI.approve(address(dcaDaily), type(uint256).max);
+        UNI.approve(address(0x000000000022D473030F116dDEE9F6B43aC78BA3), type(uint256).max);
+        // Enable the following line to test permit2
+        // PERMIT2.approve(address(UNI), address(router), type(uint160).max, type(uint48).max);
+
+        dcaDaily.transferInTokens(user);
+
+        uint256 _recurringAmount = 1 ether;
+        uint256 _initialWETHBalanceOfUser = IERC20(WETH).balanceOf(address(user));
+        uint256 _initialUNIBalanceOfUser = IERC20(UNI).balanceOf(address(user));
+        uint256 _initialETHBalanceOfUser = address(user).balance;
+        // Command for V3_SWAP_EXACT_IN
+        bytes memory commands = abi.encodePacked(bytes1(uint8(0x00)), bytes1(uint8(0x0c)));
+        // Encoded path for V3_SWAP_EXACT_IN
+        // bytes memory encodedPath =
+        //     abi.encode(bytes32(uint256(uint160(address(UNI)))), bytes3(uint24(10_000)), bytes32(uint256(uint160(WETH))));
+        // bytes memory path = bytes.concat(bytes20(address(UNI)), bytes20(address(WETH)));
+        bytes memory path = bytes.concat(bytes20(address(UNI)), LOW_FEE_TIER, bytes20(address(WETH)));
+        // https://docs.uniswap.org/contracts/universal-router/technical-reference#v3_swap_exact_in
+        // Make the following line true to test permit2
+        bool _inputTokenComesFromMsgSender = false;
+        // IERC20(tokenAddress).approve(address(universalRouter), type(uint256).max);
+        // IERC20(tokenAddress).transfer(address(universalRouter), _tokenAmount);
+
+        // // Encoding the inputs for V3_SWAP_EXACT_IN
+        bytes[] memory inputs = new bytes[](2);
+        inputs[0] = abi.encode(router, _recurringAmount, 0, path, _inputTokenComesFromMsgSender);
+        inputs[1] = abi.encode(user, 0);
+        bytes.concat("hello", "hello");
+
+        console2.log(msg.sender);
+        // // Execute on the UniversalRouter
+        // Disable the following line to test permit2
+        IERC20(UNI).transfer(address(router), _recurringAmount);
+        router.execute(commands, inputs, uint256(block.timestamp + 10000000));
+        assertEq(IERC20(UNI).balanceOf(address(user)), _initialUNIBalanceOfUser - _recurringAmount);
+        assertTrue(_initialETHBalanceOfUser < address(user).balance);
+        console2.log(_initialWETHBalanceOfUser, IERC20(WETH).balanceOf(address(user)));
+        console2.log(_initialETHBalanceOfUser, address(user).balance);
     }
 }
