@@ -4,34 +4,32 @@ pragma solidity ^0.8.13;
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IUniversalRouter} from "universal-router/interfaces/IUniversalRouter.sol";
 
-// Sepolia contract address: 0xee935cAB33f24eCe82dF2B516da33C0ddE8353cC
 contract DCADaily {
     address[] public users;
     mapping(address => bool) public isUser;
     mapping(address => uint256) public recurringBuyAmount;
     address public tokenAddress;
-    address constant WETH = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14; // Sepolia
-    IUniversalRouter public constant universalRouter = IUniversalRouter(0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD); // Sepolia
+    address private immutable WETH;
+    IUniversalRouter private constant universalRouter = IUniversalRouter(0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD); // Sepolia
 
     // Uniswap params
-    bytes constant commands = abi.encodePacked(bytes1(uint8(0x00)), bytes1(uint8(0x0c))); // Command for V3_SWAP_EXACT_IN and UNWRAP_ETH
-    bytes path;
-    bytes3 constant LOW_FEE_TIER = bytes3(uint24(500));
+    bytes private path;
+    bytes private constant commands = abi.encodePacked(bytes1(uint8(0x00)), bytes1(uint8(0x0c))); // Command for V3_SWAP_EXACT_IN and UNWRAP_ETH
+    bytes3 private constant LOW_FEE_TIER = bytes3(uint24(500));
 
-    constructor(address _tokenAddress) {
+    constructor(address _tokenAddress, address _weth) {
         tokenAddress = _tokenAddress;
+        WETH = _weth;
         // universalRouter = IUniversalRouter(_universalRouter);
         path = bytes.concat(bytes20(address(tokenAddress)), LOW_FEE_TIER, bytes20(address(WETH)));
     }
 
-    function signUp(uint256 _amount) public {
+    function signUp(uint256 _amount) external {
         if (!isUser[msg.sender]) {
             users.push(msg.sender);
             isUser[msg.sender] = true;
         }
         recurringBuyAmount[msg.sender] = _amount;
-        // TODO: Need to make recurringBuyAmount x length of time they want to sign
-        // up for / 24hours to get the total amount to approve
     }
 
     // Chainlink will call this function
@@ -46,17 +44,17 @@ contract DCADaily {
         }
     }
 
-    function updateRecurringAmount(uint256 _amount) public {
+    function updateRecurringAmount(uint256 _amount) external {
         recurringBuyAmount[msg.sender] = _amount;
     }
 
     // TODO: Change to internal
-    function _transferInTokens(address _user) public {
+    function _transferInTokens(address _user) private {
         IERC20(tokenAddress).transferFrom(_user, address(this), recurringBuyAmount[_user]);
     }
 
     // TODO: change to internal
-    function _swapTokensForEth(address _recepient, uint256 _tokenAmount) public {
+    function _swapTokensForEth(address _recepient, uint256 _tokenAmount) private {
         // // Encoding the inputs for V3_SWAP_EXACT_IN
         bytes[] memory inputs = new bytes[](2);
         inputs[0] = abi.encode(universalRouter, _tokenAmount, 0, path, false);

@@ -29,7 +29,7 @@ contract CounterTest is Test {
 
     function setUp() public {
         mockToken = new ERC20Mock();
-        dcaDaily = new DCADaily(address(UNI));
+        dcaDaily = new DCADaily(address(UNI), WETH);
         deal(address(UNI), user, 1000 ether);
 
         vm.label(0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD, "universalRouter");
@@ -87,8 +87,6 @@ contract CounterTest is Test {
         // Enable the following line to test permit2
         // PERMIT2.approve(address(UNI), address(router), type(uint160).max, type(uint48).max);
 
-        dcaDaily._transferInTokens(user);
-
         uint256 _recurringAmount = 1 ether;
         uint256 _initialWETHBalanceOfUser = IERC20(WETH).balanceOf(address(user));
         uint256 _initialUNIBalanceOfUser = IERC20(UNI).balanceOf(address(user));
@@ -128,12 +126,11 @@ contract CounterTest is Test {
         // Enable the following line to test permit2
         // PERMIT2.approve(address(UNI), address(router), type(uint160).max, type(uint48).max);
 
-        dcaDaily._transferInTokens(user);
-
         uint256 _recurringAmount = 1 ether;
         uint256 _initialWETHBalanceOfUser = IERC20(WETH).balanceOf(address(user));
         uint256 _initialUNIBalanceOfUser = IERC20(UNI).balanceOf(address(user));
         uint256 _initialETHBalanceOfUser = address(user).balance;
+
         // Command for V3_SWAP_EXACT_IN
         bytes memory commands = abi.encodePacked(bytes1(uint8(0x00)), bytes1(uint8(0x0c)));
         // Encoded path for V3_SWAP_EXACT_IN
