@@ -4,17 +4,17 @@ pragma solidity ^0.8.13;
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IUniversalRouter} from "universal-router/interfaces/IUniversalRouter.sol";
 
-// Sepolia contract address: 0xBea915d8A99B0b532E4075B36C89d4Ef4bf4f8Ec
-// Latest: 0xBb10E1dd349F31cea9c918Cb3580D28A37d5a39c
+// Sepolia contract address: 0xee935cAB33f24eCe82dF2B516da33C0ddE8353cC
 contract DCADaily {
     address[] public users;
+    mapping(address => bool) public isUser;
     mapping(address => uint256) public recurringBuyAmount;
     address public tokenAddress;
     address constant WETH = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14; // Sepolia
     IUniversalRouter public constant universalRouter = IUniversalRouter(0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD); // Sepolia
 
     // Uniswap params
-    bytes commands = abi.encodePacked(bytes1(uint8(0x00)), bytes1(uint8(0x0c))); // Command for V3_SWAP_EXACT_IN and UNWRAP_ETH
+    bytes constant commands = abi.encodePacked(bytes1(uint8(0x00)), bytes1(uint8(0x0c))); // Command for V3_SWAP_EXACT_IN and UNWRAP_ETH
     bytes path;
     bytes3 constant LOW_FEE_TIER = bytes3(uint24(500));
 
@@ -25,7 +25,10 @@ contract DCADaily {
     }
 
     function signUp(uint256 _amount) public {
-        users.push(msg.sender);
+        if (!isUser[msg.sender]) {
+            users.push(msg.sender);
+            isUser[msg.sender] = true;
+        }
         recurringBuyAmount[msg.sender] = _amount;
         // TODO: Need to make recurringBuyAmount x length of time they want to sign
         // up for / 24hours to get the total amount to approve

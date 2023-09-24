@@ -41,6 +41,18 @@ contract CounterTest is Test {
         vm.stopPrank();
     }
 
+    function testIsUser() public {
+        vm.startPrank(user);
+        dcaDaily.signUp(100 ether);
+        assertTrue(dcaDaily.isUser(user));
+        assertTrue(!dcaDaily.isUser(address(0x0)));
+        vm.stopPrank();
+    }
+
+    function testRecurringBuyAmount() public {
+        assertEq(dcaDaily.recurringBuyAmount(address(0)), 0);
+    }
+
     // function testSignUp() public {
     //     vm.startPrank(user);
     //     uint256 _recurringAmount = 100 ether;
